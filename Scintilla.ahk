@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Class to add Scintilla Edit controls to AHK Guis
  * For AHK v2. Tested with version 2.0-a100-52515e2 and x64 SciLexer.dll
  * @auther: kczx3 (adapted from RaptorX and Alguimist's version)
@@ -59,7 +59,7 @@ Class Scintilla extends Scintilla.ScintillaBase {
         }
         
         ; Load the SciLexer dll if this is the first instance of Scintilla
-        If (!this.controlCnt) {
+        If (!this.controlCount) {
             If !(this._handle := DllCall("LoadLibrary", "Str", this.DllPath)) {
                 scriptName := StrSplit(A_ScriptName, ".")[1]
                 MsgBox(scriptName . " - Error " . A_LastError, "Failed to load library DllPath.", 0x10)
@@ -203,6 +203,7 @@ Class Scintilla extends Scintilla.ScintillaBase {
         ; Styles, Markers and Indicators
         static MARKER_MAX:=31,STYLE_DEFAULT:=32,STYLE_LINENUMBER:=33,STYLE_BRACELIGHT:=34,STYLE_BRACEBAD:=35,STYLE_CONTROLCHAR:=36,STYLE_INDENTGUIDE:=37,STYLE_CALLTIP:=38,STYLE_LASTPREDEFINED:=39,STYLE_MAX:=127,INDIC_MAX:=7,INDIC_PLAIN:=0,INDIC_SQUIGGLE:=1,INDIC_TT:=2,INDIC_DIAGONAL:=3,INDIC_STRIKE:=4,INDIC_HIDDEN:=5,INDIC_BOX:=6,INDIC_ROUNDBOX:=7,INDIC0_MASK:=0x20,INDIC1_MASK:=0x40,INDIC2_MASK:=0x80,INDICS_MASK:=0xE0,SCI_START:=2000,SCI_OPTIONAL_START:=3000,SCI_LEXER_START:=4000,SCWS_INVISIBLE:=0,SCWS_VISIBLEALWAYS:=1,SCWS_VISIBLEAFTERINDENT:=2,SC_EOL_CRLF:=0,SC_EOL_CR:=1,SC_EOL_LF:=2,SC_CP_UTF8:=65001,SC_CP_DBCS:=1,SC_MARK_CIRCLE:=0,SC_MARK_ROUNDRECT:=1,SC_MARK_ARROW:=2,SC_MARK_SMALLRECT:=3,SC_MARK_SHORTARROW:=4
         static SC_MARK_EMPTY:=5,SC_MARK_ARROWDOWN:=6,SC_MARK_MINUS:=7,SC_MARK_PLUS:=8,SC_MARK_VLINE:=9,SC_MARK_LCORNER:=10,SC_MARK_TCORNER:=11,SC_MARK_BOXPLUS:=12,SC_MARK_BOXPLUSCONNECTED:=13,SC_MARK_BOXMINUS:=14,SC_MARK_BOXMINUSCONNECTED:=15,SC_MARK_LCORNERCURVE:=16,SC_MARK_TCORNERCURVE:=17,SC_MARK_CIRCLEPLUS:=18,SC_MARK_CIRCLEPLUSCONNECTED:=19,SC_MARK_CIRCLEMINUS:=20,SC_MARK_CIRCLEMINUSCONNECTED:=21,SC_MARK_BACKGROUND:=22,SC_MARK_DOTDOTDOT:=23,SC_MARK_ARROWS:=24,SC_MARK_PIXMAP:=25,SC_MARK_FULLRECT:=26,SC_MARK_CHARACTER:=10000,SC_MARKNUM_FOLDEREND:=25,SC_MARKNUM_FOLDEROPENMID:=26,SC_MARKNUM_FOLDERMIDTAIL:=27,SC_MARKNUM_FOLDERTAIL:=28,SC_MARKNUM_FOLDERSUB:=29,SC_MARKNUM_FOLDER:=30,SC_MARKNUM_FOLDEROPEN:=31,SC_MASK_FOLDERS:=0xFE000000,SC_MARGIN_SYMBOL:=0,SC_MARGIN_NUMBER:=1,SC_MARGIN_BACK:=2,SC_MARGIN_FORE:=3,SC_MARGIN_TEXT_:=4,SC_MARGIN_RTEXT:=5,SC_MARGIN_COLOUR:=6
+        static SC_IV_NONE:=0,SC_IV_REAL:=1,SC_IV_LOOKFORWARD:=2,SC_IV_LOOKBOTH:=3
         
         ; Search flags
         static SCFIND_WHOLEWORD:=2,SCFIND_MATCHCASE:=4,SCFIND_WORDSTART:=0x00100000,SCFIND_REGEXP:=0x00200000,SCFIND_POSIX:=0x00400000
@@ -255,6 +256,21 @@ Class Scintilla extends Scintilla.ScintillaBase {
 
             ; pass the value of this.ScintillaBase[newMsg] since we already 
             return this.__sendEditor(this.ScintillaBase[newMsg], wParam, lParam)
+        }
+        
+        /**
+         * Called if a property is read from a Scintilla instance but it is not defined on that instance
+         * Checks if <instance>.ScintillaBase has a property of the same name.
+         * If it does, return its value, otherwise throw an exception.
+         * @param {key}: The requested property from the instance of Scintilla
+         * @return: Value of that property from Scintilla.ScintillaBase
+         */
+        __Get(key) {
+            if (!this.ScintillaBase.HasKey(key)) {
+                throw Exception(this.__class "::" key "`n`nUnknown property!", -1)
+            }
+            
+            return this.ScintillaBase[key]
         }
     }
 }
