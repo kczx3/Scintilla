@@ -1,4 +1,4 @@
-﻿#Include <Scintilla>
+#Include <Scintilla>
 ; Assumes Scintilla.ahk is in a lib folder
 
 main := GuiCreate()
