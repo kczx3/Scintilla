@@ -2,9 +2,19 @@
 ; Assumes Scintilla.ahk is in a lib folder
 
 main := GuiCreate()
-main.MarginX := main.MarginY := 0
+main.OnEvent("Close", () => ExitApp())
+; main.MarginX := main.MarginY := 0
+main.addButton("section vAddDoc", "Add New").OnEvent("click", "AddNewDoc")
+main.addButton("ys Disabled vDeleteDoc", "Delete").OnEvent("click", "deleteDoc")
+main.addButton("x+200 ys Disabled vPrevDoc", "Previous").OnEvent("click", (ctrl) => changeDoc(ctrl, false))
+main.addButton("ys Disabled vNextDoc", "Next").OnEvent("click", (ctrl) => changeDoc(ctrl, true))
 
-sci := new Scintilla(main, "w600 h600 vEdit", , 0, 0)
+global sciDocs := [] ; store doc pointers
+global currentDoc := 0
+
+global sci := new Scintilla(main, "w600 h600 xs vEdit", , 0, 0)
+currentDoc := sciDocs.push(sci.GetDocPointer()) ; store the initial doc pointer
+
 ; apply generic styling
 setupSciControl(sci)
 
@@ -13,6 +23,85 @@ sci.OnNotify(sci.SCN_DOUBLECLICK, (ctrl, l) => showCurrentSelection(sci, l))
 
 main.show()
 Return
+
+changeDoc(ctrl, next) {
+    ; This shouldn't ever happen since we disable the buttons but just make sure that the index is valid
+    if (sciDocs.HasKey(currentDoc - (next ? -1 : 1))) {
+        ; add a ref to the current doc before switching
+        sci.AddRefDocument(0, sciDocs[currentDoc])
+        
+        nextDoc := next ? ++currentDoc : --currentDoc
+        
+        ; change the pointer
+        sci.SetDocPointer(0, sciDocs[nextDoc])
+        
+        ; release the ref that we were holding to the now current doc so that Scintilla is the sole owner
+        sci.ReleaseDocument(0, sciDocs[nextDoc])
+        
+        if (nextDoc = 1) {
+            ctrl.gui.control["prevDoc"].enabled := false
+            ctrl.gui.control["nextDoc"].enabled := true
+        }
+        else if (nextDoc = sciDocs.length()) {
+            ctrl.gui.control["prevDoc"].enabled := true
+            ctrl.gui.control["nextDoc"].enabled := false
+        }
+        else {
+            ctrl.gui.control["prevDoc"].enabled := true
+            ctrl.gui.control["nextDoc"].enabled := true
+        }
+    }
+}
+
+
+AddNewDoc(ctrl) {
+    ; add a ref to the current doc before switching to a new one
+    sci.AddRefDocument(0, sciDocs[currentDoc])
+    
+    sci.SetDocPointer(0, 0)
+    
+    ; Save the pointer to the newly created doc
+    currentDoc := sciDocs.push(sci.GetDocPointer())
+    
+    ; apply generic styling
+    setupSciControl(sci)
+    
+    ctrl.gui.control["prevDoc"].enabled := true
+    ctrl.gui.control["nextDoc"].enabled := false
+    ctrl.gui.control["deleteDoc"].enabled := true
+}
+
+deleteDoc(ctrl) {
+    ; determine which doc we are going to show after deleting the current one
+    ; If we are deleting the last doc, then show the previous one
+    ; if we are deleting any other doc, then show the document whose pointer will now occupy the currentDoc position of sciDocs
+    showNext := currentDoc = sciDocs.length() ? currentDoc - 1 : currentDoc
+
+    ; Store our own ref to the document
+    sci.AddRefDocument(0, sciDocs[currentDoc])
+    
+    ; Change the current document
+    sci.SetDocPointer(0, sciDocs[showNext])
+    
+    ; release our ref from the previous document which drops the ref count to 0 and clears the memory
+    sci.ReleaseDocument(0, sciDocs[currentDoc])
+    
+    ; Remove the pointer to the doc that we just deleted
+    sciDocs.RemoveAt(currentDoc)
+    currentDoc := showNext ; current is now equal to showNext, do this because in this example, currentDoc is global
+    newLength := sciDocs.length()
+    
+    if (newLength = currentDoc || newLength = 1) {
+        ctrl.gui.control["nextDoc"].enabled := false
+    }
+    if (currentDoc = 1) {
+        ctrl.gui.control["prevDoc"].enabled := false
+    }
+    
+    if (newLength = 1) {
+        ctrl.gui.control["deleteDoc"].enabled := false
+    }
+}
 
 showCurrentSelection(sci, l) {
     ; if the selection just contains spaces, this will be false
