@@ -4,15 +4,19 @@
 main := GuiCreate()
 main.OnEvent("Close", () => ExitApp())
 ; main.MarginX := main.MarginY := 0
-main.addButton("section vAddDoc", "Add New").OnEvent("click", "AddNewDoc")
+addBtn := main.addButton("section vAddDoc", "Add New")
+addBtn.OnEvent("click", "AddNewDoc")
 main.addButton("ys Disabled vDeleteDoc", "Delete").OnEvent("click", "deleteDoc")
-main.addButton("x+200 ys Disabled vPrevDoc", "Previous").OnEvent("click", (ctrl) => changeDoc(ctrl, false))
+main.addText("ys w1 h" addBtn.pos.h + 2 " 0x11")
+main.addButton("ys Disabled vPrevDoc", "Previous").OnEvent("click", (ctrl) => changeDoc(ctrl, false))
 main.addButton("ys Disabled vNextDoc", "Next").OnEvent("click", (ctrl) => changeDoc(ctrl, true))
+main.addButton("ys x+50 vSplitDoc", "Split Doc").OnEvent("click", "splitDoc")
+main.addButton("ys Disabled vUnsplitDoc", "Unplsit").OnEvent("click", "unsplitDoc")
 
 global sciDocs := [] ; store doc pointers
 global currentDoc := 0
 
-global sci := new Scintilla(main, "w600 h600 xs vEdit", , 0, 0)
+global sci := new Scintilla(main, "w400 h600 xs Section vEdit", , 0, 0)
 currentDoc := sciDocs.push(sci.GetDocPointer()) ; store the initial doc pointer
 
 ; apply generic styling
@@ -23,6 +27,15 @@ sci.OnNotify(sci.SCN_DOUBLECLICK, (ctrl, l) => showCurrentSelection(sci, l))
 
 main.show()
 Return
+
+splitDoc(ctrl) {
+    gui := ctrl.gui
+    
+    sciNew := new Scintilla(gui, "ys w400 h600 vEdit2", , 0, 0)
+    setupSciControl(sciNew)
+    sciNew.SetDocPointer(0, sciDocs[currentDoc])
+    gui.show("AutoSize")
+}
 
 changeDoc(ctrl, next) {
     ; This shouldn't ever happen since we disable the buttons but just make sure that the index is valid
@@ -72,22 +85,27 @@ AddNewDoc(ctrl) {
 }
 
 deleteDoc(ctrl) {
+    ; save our pointer of the current doc locally to make things easier
+    prevDoc := sciDocs[currentDoc]
+    
     ; determine which doc we are going to show after deleting the current one
     ; If we are deleting the last doc, then show the previous one
     ; if we are deleting any other doc, then show the document whose pointer will now occupy the currentDoc position of sciDocs
     showNext := currentDoc = sciDocs.length() ? currentDoc - 1 : currentDoc
 
-    ; Store our own ref to the document
+    ; Store our own ref to the current document
     sci.AddRefDocument(0, sciDocs[currentDoc])
     
-    ; Change the current document
+    ; Remove our current doc from tracking
+    sciDocs.RemoveAt(currentDoc)
+    
+    ; Change the current document to the next one
     sci.SetDocPointer(0, sciDocs[showNext])
     
     ; release our ref from the previous document which drops the ref count to 0 and clears the memory
-    sci.ReleaseDocument(0, sciDocs[currentDoc])
+    ; You should never drop the count to 0 if the Scintilla control is the last to own the document
+    sci.ReleaseDocument(0, prevDoc)
     
-    ; Remove the pointer to the doc that we just deleted
-    sciDocs.RemoveAt(currentDoc)
     currentDoc := showNext ; current is now equal to showNext, do this because in this example, currentDoc is global
     newLength := sciDocs.length()
     
