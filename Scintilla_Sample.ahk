@@ -10,13 +10,13 @@ main.addButton("ys Disabled vDeleteDoc", "Delete").OnEvent("click", "deleteDoc")
 main.addText("ys w1 h" addBtn.pos.h + 2 " 0x11")
 main.addButton("ys Disabled vPrevDoc", "Previous").OnEvent("click", (ctrl) => changeDoc(ctrl, false))
 main.addButton("ys Disabled vNextDoc", "Next").OnEvent("click", (ctrl) => changeDoc(ctrl, true))
-main.addButton("ys x+50 vSplitDoc", "Split Doc").OnEvent("click", "splitDoc")
-main.addButton("ys Disabled vUnsplitDoc", "Unplsit").OnEvent("click", "unsplitDoc")
+main.addButton("ys x+400 vSplitDoc", "Split Doc").OnEvent("click", "splitDoc")
+main.addButton("ys Disabled vUnsplitDoc", "Unsplit Doc").OnEvent("click", "unsplitDoc")
 
 global sciDocs := [] ; store doc pointers
 global currentDoc := 0
 
-global sci := new Scintilla(main, "w400 h600 xs Section vEdit", , 0, 0)
+global sci := new Scintilla(main, "w800 h400 xs Section vEdit", , 0, 0)
 currentDoc := sciDocs.push(sci.GetDocPointer()) ; store the initial doc pointer
 
 ; apply generic styling
@@ -25,16 +25,46 @@ setupSciControl(sci)
 ; listen for double clicks and show the current selection if it contains text
 sci.OnNotify(sci.SCN_DOUBLECLICK, (ctrl, l) => showCurrentSelection(sci, l))
 
+global sci2 := new Scintilla(main, "yp xp+" (sci.ctrl.pos.w) // 2 " w0 h400 Hidden vEdit2", , 0, 0)
+; apply generic styling
+setupSciControl(sci2)
+
 main.show()
 Return
 
 splitDoc(ctrl) {
     gui := ctrl.gui
     
-    sciNew := new Scintilla(gui, "ys w400 h600 vEdit2", , 0, 0)
-    setupSciControl(sciNew)
-    sciNew.SetDocPointer(0, sciDocs[currentDoc])
-    gui.show("AutoSize")
+    ; cut the original in half plus some margin
+    gui.control["Edit"].move("w" (gui.control["Edit"].pos.w - gui.marginX) // 2)
+    
+    ; make the second control the same width (height was already set) and make it visible
+    sci2.ctrl.move("w" gui.control["Edit"].pos.w)
+    sci2.ctrl.Visible := true
+    gui.control["splitDoc"].enabled := false
+    gui.control["unsplitDoc"].enabled := true
+    
+    setupSciControl(sci2)
+    sci2.SetDocPointer(0, sciDocs[currentDoc])
+    
+    updateScrollWidth(sci)
+}
+
+unSplitDoc(ctrl) {
+    gui := ctrl.gui
+    
+    ; Set the second control to a new document
+    ; this reduces the ref count on the document that was split by one
+    sci2.SetDocPointer(0, 0)
+    
+    ; make the main control back to its original width
+    sci.ctrl.move("w800")
+    
+    sci2.ctrl.visible := false
+    updateScrollWidth(sci)
+    
+    gui.control["unsplitDoc"].enabled := false
+    gui.control["splitDoc"].enabled := true
 }
 
 changeDoc(ctrl, next) {
@@ -47,6 +77,10 @@ changeDoc(ctrl, next) {
         
         ; change the pointer
         sci.SetDocPointer(0, sciDocs[nextDoc])
+        
+        if (ctrl.gui.control["edit2"].visible) {
+            sci2.SetDocPointer(0, sciDocs[nextDoc])
+        }
         
         ; release the ref that we were holding to the now current doc so that Scintilla is the sole owner
         sci.ReleaseDocument(0, sciDocs[nextDoc])
@@ -76,6 +110,11 @@ AddNewDoc(ctrl) {
     ; Save the pointer to the newly created doc
     currentDoc := sciDocs.push(sci.GetDocPointer())
     
+    ; If showing the second control, set it to point to the same new document
+    if (ctrl.gui.control["edit2"].visible) {
+        sci2.SetDocPointer(0, sciDocs[currentDoc])
+    }
+    
     ; apply generic styling
     setupSciControl(sci)
     
@@ -95,6 +134,11 @@ deleteDoc(ctrl) {
 
     ; Store our own ref to the current document
     sci.AddRefDocument(0, sciDocs[currentDoc])
+    
+    ; if the split doc is visible, then call the unsplit routine to hide it and release its reference
+    if (sci2.ctrl.visible) {
+        unSplitDoc(ctrl)
+    }
     
     ; Remove our current doc from tracking
     sciDocs.RemoveAt(currentDoc)
@@ -119,6 +163,11 @@ deleteDoc(ctrl) {
     if (newLength = 1) {
         ctrl.gui.control["deleteDoc"].enabled := false
     }
+}
+
+updateScrollWidth(sci) {
+    lineNumberWidth := sci.GetMarginWidthN(0)
+    sci.SetScrollWidth(sci.ctrl.pos.w - lineNumberWidth - SysGet(11)) ; Also subtract the width of a vertical scrollbar
 }
 
 showCurrentSelection(sci, l) {
